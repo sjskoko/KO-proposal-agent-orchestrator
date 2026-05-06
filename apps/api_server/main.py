@@ -155,26 +155,6 @@ def list_tasks():
     return tasks[:50]
 
 
-@app.get("/tasks/{session_id}")
-def get_task(session_id: str):
-    """Return a task record including full event history (allows SSE reconnect)."""
-    with _TASK_LOCK:
-        task = _TASK_STORE.get(session_id)
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return task
-
-
-# --- Task execution ---
-
-@app.post("/tasks", response_model=TaskResponse)
-def create_task(req: TaskRequest):
-    """Submit a task synchronously (blocks until done). For CLI/script use."""
-    from apps.cli.runner import run_agent
-    result = run_agent(goal=req.goal, agent_id=req.agent_id, config_dir=_CONFIG_DIR)
-    return TaskResponse(result=str(result))
-
-
 @app.get("/tasks/stream")
 def stream_task(goal: str, agent_id: str = "main_agent"):
     """
@@ -272,6 +252,26 @@ def stream_task(goal: str, agent_id: str = "main_agent"):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# --- Task detail & sync execution (after /tasks/stream to avoid route shadowing) ---
+
+@app.get("/tasks/{session_id}")
+def get_task(session_id: str):
+    """Return a task record including full event history (allows SSE reconnect)."""
+    with _TASK_LOCK:
+        task = _TASK_STORE.get(session_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+
+@app.post("/tasks", response_model=TaskResponse)
+def create_task(req: TaskRequest):
+    """Submit a task synchronously (blocks until done). For CLI/script use."""
+    from apps.cli.runner import run_agent
+    result = run_agent(goal=req.goal, agent_id=req.agent_id, config_dir=_CONFIG_DIR)
+    return TaskResponse(result=str(result))
 
 
 # ---------------------------------------------------------------------------
