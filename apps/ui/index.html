@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Orchestrator</title>
+    <!--
+      Tailwind CSS CDN — applies utility classes (bg-gray-900, text-sm, etc.)
+      without any build step. Fine for internal dev tools.
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: 'class' }
+    </script>
+    <style>
+      /* Custom scrollbar for the event log */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #111827; }
+      ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    </style>
+  </head>
+  <body class="bg-gray-950 text-gray-100 antialiased">
+    <div id="root"></div>
+    <!--
+      Vite injects the compiled React bundle here at build time.
+      In dev mode, it serves this via HMR (hot module replacement).
+    -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
