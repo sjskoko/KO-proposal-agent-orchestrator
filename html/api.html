@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API 서버 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html" class="active">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>API 서버</h1>
+  <p class="page-subtitle">FastAPI 기반 REST 인터페이스로 에이전트를 외부에서 호출하는 방법</p>
+
+  <h2>서버 시작</h2>
+  <pre>
+# 개발 모드 (자동 리로드)
+uvicorn apps.api_server.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 프로덕션
+uvicorn apps.api_server.main:app --host 0.0.0.0 --port 8000 --workers 2
+
+# Python 모듈로 직접
+python -m apps.api_server.main</pre>
+
+  <h2>엔드포인트</h2>
+  <table>
+    <tr><th>메서드</th><th>경로</th><th>설명</th></tr>
+    <tr><td><code>POST</code></td><td><code>/tasks</code></td><td>작업 제출 — 동기 응답</td></tr>
+    <tr><td><code>GET</code></td><td><code>/health</code></td><td>서버 상태 확인</td></tr>
+    <tr><td><code>GET</code></td><td><code>/docs</code></td><td>Swagger UI (자동 생성)</td></tr>
+    <tr><td><code>GET</code></td><td><code>/redoc</code></td><td>ReDoc 문서 (자동 생성)</td></tr>
+  </table>
+
+  <h2>POST /tasks</h2>
+  <h3>요청 바디</h3>
+  <pre>
+{
+  "goal": "수행할 작업 설명",     // 필수
+  "agent_id": "main_agent"      // 선택 (기본값: main_agent)
+}</pre>
+
+  <h3>응답</h3>
+  <pre>
+{
+  "result": "에이전트 실행 결과 문자열",
+  "session_id": "a1b2c3d4"      // 트레이스 조회에 사용
+}</pre>
+
+  <h3>예시</h3>
+  <pre>
+# curl
+curl -X POST http://localhost:8000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"goal": "Python 버블정렬 작성해줘", "agent_id": "coder"}'
+
+# 응답
+{
+  "result": "def bubble_sort(arr):\n    n = len(arr)...",
+  "session_id": "a1b2c3d4"
+}
+
+# Python httpx
+import httpx
+resp = httpx.post("http://localhost:8000/tasks",
+    json={"goal": "파일 목록 알려줘", "agent_id": "file_worker"})
+print(resp.json()["result"])</pre>
+
+  <h2>GET /health</h2>
+  <pre>
+curl http://localhost:8000/health
+# 응답: {"status": "ok"}</pre>
+
+  <h2>Swagger UI</h2>
+  <p>서버 실행 중 브라우저에서 직접 테스트할 수 있습니다:</p>
+  <pre>
+http://localhost:8000/docs</pre>
+
+  <h2>오류 응답</h2>
+  <table>
+    <tr><th>HTTP 코드</th><th>상황</th></tr>
+    <tr><td>422</td><td>요청 바디 유효성 검사 실패 (goal 누락 등)</td></tr>
+    <tr><td>500</td><td>에이전트 실행 중 예외 발생</td></tr>
+  </table>
+  <pre>
+# 422 응답 예시
+{
+  "detail": [
+    {
+      "loc": ["body", "goal"],
+      "msg": "field required",
+      "type": "value_error.missing"
+    }
+  ]
+}</pre>
+</main>
+</body>
+</html>

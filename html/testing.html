@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>테스트 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html" class="active">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>테스트</h1>
+  <p class="page-subtitle">단위·통합·에이전트·스킬 테스트를 실행하는 방법</p>
+
+  <h2>테스트 계층</h2>
+  <table>
+    <tr><th>계층</th><th>위치</th><th>Ollama 필요</th><th>목적</th></tr>
+    <tr><td>단위</td><td><code>tests/unit/</code></td><td>불필요</td><td>인터페이스, 로직, 상태머신 검증</td></tr>
+    <tr><td>통합</td><td><code>tests/integration/</code></td><td>불필요</td><td>런타임 실제 동작 검증</td></tr>
+    <tr><td>에이전트 평가</td><td><code>tests/agent_eval/</code></td><td>불필요 (Stub 모델)</td><td>전체 흐름 시나리오</td></tr>
+    <tr><td>스킬 평가</td><td><code>tests/skill_eval/</code></td><td>불필요</td><td>스킬 핸들러 단독 검증</td></tr>
+  </table>
+
+  <h2>실행 방법</h2>
+  <pre>
+# 전체 테스트
+bash scripts/run_tests.sh all
+
+# 계층별 실행
+bash scripts/run_tests.sh unit
+bash scripts/run_tests.sh integration
+bash scripts/run_tests.sh agent
+bash scripts/run_tests.sh skill
+
+# pytest 직접 실행
+pytest tests/ -v --tb=short
+pytest tests/unit/ -v
+pytest tests/unit/test_permissions.py -v -k "test_require_denied"
+
+# 커버리지
+pytest tests/ --cov=core --cov=runtimes --cov-report=html
+open htmlcov/index.html</pre>
+
+  <h2>내장 테스트 파일</h2>
+  <h3>단위 테스트</h3>
+  <table>
+    <tr><th>파일</th><th>테스트 대상</th></tr>
+    <tr><td><code>test_permissions.py</code></td><td>PermissionSet, PermissionChecker, PermissionDeniedError</td></tr>
+    <tr><td><code>test_tool_registry.py</code></td><td>ToolRegistry 등록·호출·스키마 검증</td></tr>
+    <tr><td><code>test_model_router.py</code></td><td>ModelRouter 규칙 매칭, 헬스체크, 비용 추적</td></tr>
+    <tr><td><code>test_task_graph.py</code></td><td>TaskGraph 의존성 해소, 완료 판정</td></tr>
+  </table>
+
+  <h3>통합 테스트</h3>
+  <table>
+    <tr><th>파일</th><th>테스트 대상</th></tr>
+    <tr><td><code>test_runtime_files.py</code></td><td>FileRuntime 읽기/쓰기/목록/삭제, 경로 차단</td></tr>
+    <tr><td><code>test_runtime_api.py</code></td><td>ApiRuntime HTTP 요청, 도메인 필터링 (respx 모킹)</td></tr>
+  </table>
+
+  <h2>새 테스트 작성 예시</h2>
+  <h3>런타임 통합 테스트</h3>
+  <pre>
+# tests/integration/test_runtime_memory.py
+import pytest
+from core.runtime.base import RuntimeCall
+from runtimes.memory.runtime import MemoryRuntime
+
+@pytest.fixture
+def runtime():
+    rt = MemoryRuntime()
+    rt.configure({"backend": "in_memory"})
+    return rt
+
+class TestMemoryRuntime:
+    def test_write_and_read(self, runtime):
+        # 쓰기
+        write = runtime.execute(RuntimeCall("memory", "memory_write", {
+            "content": "중요한 정보",
+            "scope": "session",
+            "agent_id": "test_agent"
+        }))
+        assert write.success
+
+        # 읽기
+        read = runtime.execute(RuntimeCall("memory", "memory_read", {
+            "query": "중요한",
+            "scope": "session",
+            "agent_id": "test_agent"
+        }))
+        assert read.success
+        assert len(read.data["entries"]) > 0</pre>
+
+  <h3>에이전트 평가 테스트</h3>
+  <pre>
+# tests/agent_eval/test_custom_agent.py
+from core.agent.base import Agent
+from core.agent.definition import AgentDefinition, ModelPolicy
+from core.events.bus import EventBus
+from core.events.types import AgentDoneEvent
+from core.memory.base import MemoryScope
+from core.permissions.base import PermissionSet
+
+class _StubModel:
+    name = "stub"
+    def complete(self, messages, options=None):
+        from core.model.base import ModelResponse
+        # 항상 단일 단계 플랜 반환
+        return ModelResponse(
+            content='[{"description":"task","task_type":"reasoning"}]',
+            model="stub", provider="stub"
+        )
+    def stream(self, m, o=None): yield "x"
+    def health_check(self): return True
+
+def test_my_agent_completes_goal():
+    bus = EventBus()
+    done_events = []
+    bus.subscribe(AgentDoneEvent, done_events.append)
+
+    defn = AgentDefinition(
+        id="my_agent", role="tester", goal="test",
+        model_policy=ModelPolicy(preferred="stub"),
+        memory_scope=MemoryScope.SESSION,
+        permissions=PermissionSet.unrestricted(),
+    )
+    from core.planner.sequential import SequentialPlanner
+    agent = Agent(defn, bus, planner=SequentialPlanner(_StubModel()))
+    agent.run("목표 달성")
+
+    assert done_events[0].success</pre>
+
+  <h2>CI 설정 예시 (GitHub Actions)</h2>
+  <pre>
+# .github/workflows/test.yml
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/unit tests/integration tests/skill_eval -v</pre>
+</main>
+</body>
+</html>
