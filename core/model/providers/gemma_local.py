@@ -126,15 +126,17 @@ class GemmaLocalProvider:
             ) from exc
 
         try:
+            import os
+            cuda_device = os.getenv("GEMMA_CUDA_DEVICE", "cuda:1")
             self._tokenizer = AutoTokenizer.from_pretrained(str(resolved), trust_remote_code=True)
             self._client = AutoModelForCausalLM.from_pretrained(
                 str(resolved),
                 trust_remote_code=True,
-                torch_dtype="auto",
-                device_map="auto",
+                torch_dtype=torch.bfloat16,
+                device_map=cuda_device,
             )
             self._client.eval()
-            log.info("gemma_local.model_loaded", model_path=str(resolved))
+            log.info("gemma_local.model_loaded", model_path=str(resolved), device=cuda_device)
         except Exception as exc:
             raise RuntimeError(f"Failed to load Gemma model from {resolved}: {exc}") from exc
 
@@ -147,10 +149,14 @@ class GemmaLocalProvider:
         import torch  # type: ignore[import]
 
         opts = options or ModelOptions()
-        prompt = "\n".join(f"{m.role}: {m.content}" for m in messages)
-        inputs = self._tokenizer(prompt, return_tensors="pt")
+        chat = [{"role": m.role, "content": m.content} for m in messages]
         model_device = next(self._client.parameters()).device
-        inputs = {k: v.to(model_device) for k, v in inputs.items()}
+        inputs = self._tokenizer.apply_chat_template(
+            chat,
+            return_tensors="pt",
+            return_dict=True,
+            add_generation_prompt=True,
+        ).to(model_device)
 
         with torch.no_grad():
             generated = self._client.generate(
