@@ -1,0 +1,80 @@
+# Built-in tool registrations.
+# Skills and MCP tools are registered automatically at startup.
+
+tools:
+  read_file:
+    id: read_file
+    name: Read File
+    description: "Read the contents of a file from the workspace"
+    runtime_id: files
+    permissions_required: [file_read]
+    source: builtin
+    input_schema:
+      type: object
+      required: [path]
+      properties:
+        path: { type: string, description: "File path relative to workspace" }
+    output_schema:
+      type: object
+      properties:
+        content: { type: string }
+        path: { type: string }
+
+  write_file:
+    id: write_file
+    name: Write File
+    description: "Write content to a file in the workspace"
+    runtime_id: files
+    permissions_required: [file_write]
+    source: builtin
+    input_schema:
+      type: object
+      required: [path, content]
+      properties:
+        path: { type: string }
+        content: { type: string }
+    output_schema:
+      type: object
+      properties:
+        path: { type: string }
+
+  shell_exec:
+    id: shell_exec
+    name: Shell Execute
+    description: "Run a shell command (sandbox mode enforced)"
+    runtime_id: tools
+    permissions_required: [shell_exec]
+    source: builtin
+    input_schema:
+      type: object
+      required: [command]
+      properties:
+        command: { type: string }
+        timeout_seconds: { type: integer, default: 30 }
+    output_schema:
+      type: object
+      properties:
+        stdout: { type: string }
+        stderr: { type: string }
+        returncode: { type: integer }
+
+  http_get:
+    id: http_get
+    name: HTTP GET
+    description: "Perform an HTTP GET request to an external URL"
+    runtime_id: api
+    permissions_required: [network_access, api_call]
+    source: builtin
+    input_schema:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string }
+        headers: { type: object }
+        params: { type: object }
+    output_schema:
+      type: object
+      properties:
+        status_code: { type: integer }
+        body: { type: string }
+        headers: { type: object }

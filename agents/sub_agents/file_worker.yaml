@@ -1,0 +1,32 @@
+id: file_worker
+role: specialist
+goal: "Read, write, search, and organize files within the allowed workspace."
+
+model_policy:
+  preferred: gemma4_local
+
+memory_scope: session
+runtime_access:
+  - files
+  - memory
+
+permissions:
+  file_read: true
+  file_write: true
+  shell_exec: false
+  network_access: false
+  mcp_call: false
+  api_call: false
+  memory_read: true
+  memory_write: false
+  sub_agent_delegate: false
+
+tools:
+  - read_file
+  - write_file
+  - list_files
+  - delete_file
+  - search_in_files
+
+skills: []
+sub_agents: []

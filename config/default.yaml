@@ -1,0 +1,22 @@
+app:
+  name: gemma-agent
+  version: "0.1.0"
+  log_level: INFO           # DEBUG | INFO | WARNING | ERROR
+  trace_dir: ./data/traces
+  workspace_dir: ./workspace
+
+agents:
+  default: main_agent
+  definitions_dir: ./agents
+
+skills:
+  discovery_dir: ./skills
+  auto_load: true
+
+mcp:
+  configs_dir: ./mcp/configs
+  auto_start: false         # set true to start enabled servers at boot
+
+session:
+  max_duration_seconds: 3600
+  max_steps: 100

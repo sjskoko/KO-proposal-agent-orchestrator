@@ -1,0 +1,58 @@
+default_provider: gemma4_local
+
+providers:
+  gemma4_local:
+    type: local
+    backend: ollama
+    model: gemma4:27b
+    base_url: http://localhost:11434
+    context_window: 131072
+    priority: 1
+
+  gemma4_local_small:
+    type: local
+    backend: ollama
+    model: gemma4:12b
+    base_url: http://localhost:11434
+    context_window: 131072
+    priority: 2
+
+  openai_gpt4o:
+    type: api
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    priority: 3
+    rate_limit:
+      rpm: 60
+      tpm: 100000
+    cost_control:
+      max_cost_per_session_usd: 1.00
+
+  anthropic_sonnet:
+    type: api
+    model: claude-sonnet-4-6
+    api_key_env: ANTHROPIC_API_KEY
+    priority: 4
+    rate_limit:
+      rpm: 50
+      tpm: 80000
+
+routing:
+  rules:
+    - match: { task_type: code_generation }
+      prefer: gemma4_local
+    - match: { task_type: web_search_summary }
+      prefer: openai_gpt4o
+    - match: { task_type: long_document }
+      prefer: gemma4_local      # large context stays local
+  fallback_chain:
+    - gemma4_local
+    - gemma4_local_small
+    - openai_gpt4o
+    - anthropic_sonnet
+
+retry:
+  max_attempts: 3
+  backoff: exponential
+  backoff_base_ms: 500
+  max_backoff_ms: 10000

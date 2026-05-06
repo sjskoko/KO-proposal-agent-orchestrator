@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이벤트 & 트레이스 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html" class="active">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>이벤트 & 트레이스</h1>
+  <p class="page-subtitle">모든 실행 단계를 기록하고, 재생하고, 디버그하는 방법</p>
+
+  <h2>이벤트 타입</h2>
+  <table>
+    <tr><th>이벤트</th><th>발생 시점</th><th>주요 필드</th></tr>
+    <tr><td><code>AgentStartedEvent</code></td><td>에이전트 실행 시작</td><td>agent_id, session_id, goal</td></tr>
+    <tr><td><code>AgentDoneEvent</code></td><td>에이전트 실행 완료</td><td>success, summary</td></tr>
+    <tr><td><code>TaskDispatchedEvent</code></td><td>노드 실행 직전</td><td>task_id, task_type, runtime_id</td></tr>
+    <tr><td><code>ToolCalledEvent</code></td><td>툴 호출 완료</td><td>tool_id, inputs, outputs, latency_ms, success</td></tr>
+    <tr><td><code>ModelQueriedEvent</code></td><td>모델 응답 완료</td><td>provider, model, input_tokens, output_tokens, latency_ms</td></tr>
+    <tr><td><code>StepFailedEvent</code></td><td>노드 실행 실패</td><td>task_id, error_type, error_message, retriable</td></tr>
+    <tr><td><code>PermissionDeniedEvent</code></td><td>권한 거부</td><td>capability, requested_by</td></tr>
+  </table>
+
+  <h2>트레이스 파일</h2>
+  <p>각 세션은 <code>data/traces/&lt;session_id&gt;.jsonl</code>에 기록됩니다.</p>
+  <pre>
+# 파일 예시 (한 줄 = 한 이벤트)
+{"_type": "AgentStartedEvent", "agent_id": "main_agent", "session_id": "a1b2c3d4",
+ "goal": "workspace 파일 요약", "timestamp": "2026-05-06T10:00:00.123456+00:00"}
+
+{"_type": "TaskDispatchedEvent", "task_id": "f3a1", "runtime_id": "files",
+ "task_type": "file_read", "timestamp": "2026-05-06T10:00:00.456789+00:00"}
+
+{"_type": "ToolCalledEvent", "tool_id": "read_file", "success": true,
+ "latency_ms": 12.4, "outputs": {"content": "...", "path": "./workspace/a.txt"},
+ "timestamp": "2026-05-06T10:00:00.789000+00:00"}
+
+{"_type": "ModelQueriedEvent", "provider": "gemma4_local", "model": "gemma4:27b",
+ "input_tokens": 512, "output_tokens": 128, "latency_ms": 1843.2,
+ "timestamp": "2026-05-06T10:00:02.632000+00:00"}
+
+{"_type": "AgentDoneEvent", "success": true, "summary": "3개 파일 요약 완료",
+ "timestamp": "2026-05-06T10:00:02.900000+00:00"}</pre>
+
+  <h2>CLI로 트레이스 조회</h2>
+  <pre>
+# 특정 세션 트레이스 출력
+agent replay data/traces/a1b2c3d4.jsonl
+
+# 출력:
+# 001 AgentStartedEvent     agent=main_agent  goal=workspace 파일 요약
+# 002 TaskDispatchedEvent   task=f3a1  runtime=files
+# 003 ToolCalledEvent       tool=read_file  latency=12.4ms  ✓
+# 004 ModelQueriedEvent     provider=gemma4_local  tokens=640  latency=1843ms
+# 005 AgentDoneEvent        success=True</pre>
+
+  <h2>Python에서 트레이스 분석</h2>
+  <pre>
+from core.events.trace import TraceWriter
+
+records = TraceWriter.replay("data/traces/a1b2c3d4.jsonl")
+
+# 모델 토큰 사용량 집계
+total_tokens = sum(
+    r.get("input_tokens", 0) + r.get("output_tokens", 0)
+    for r in records if r["_type"] == "ModelQueriedEvent"
+)
+print(f"총 사용 토큰: {total_tokens}")
+
+# 실패한 스텝 조회
+failures = [r for r in records if r["_type"] == "StepFailedEvent"]
+for f in failures:
+    print(f"실패: {f['task_id']} — {f['error_message']}")</pre>
+
+  <h2>커스텀 이벤트 핸들러 등록</h2>
+  <pre>
+from core.events.bus import EventBus
+from core.events.types import ModelQueriedEvent
+
+bus = EventBus()
+
+# 특정 이벤트 타입만 구독
+def on_model_query(event: ModelQueriedEvent):
+    cost = (event.input_tokens / 1_000_000 * 0.50 +
+            event.output_tokens / 1_000_000 * 1.50)
+    print(f"[비용] {cost:.4f}$ — {event.provider}")
+
+bus.subscribe(ModelQueriedEvent, on_model_query)
+
+# 모든 이벤트 구독
+bus.subscribe_all(lambda e: print(type(e).__name__))</pre>
+
+  <h2>트레이스 디렉토리 설정</h2>
+  <pre>
+# config/default.yaml
+app:
+  trace_dir: ./data/traces   # 트레이스 저장 경로 변경 가능</pre>
+</main>
+</body>
+</html>

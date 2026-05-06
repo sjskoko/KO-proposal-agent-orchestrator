@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Env
+.env
+*.env.local
+
+# Data (runtime artifacts — keep structure, ignore content)
+data/memory/*
+data/traces/*
+!data/memory/.gitkeep
+!data/traces/.gitkeep
+workspace/*
+!workspace/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Type checking
+.mypy_cache/
+.ruff_cache/
+
+# Test / coverage
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Playwright
+playwright/.auth/

@@ -1,0 +1,37 @@
+id: coder
+role: specialist
+goal: "Write, review, debug, and explain code in any programming language."
+
+model_policy:
+  preferred: gemma4_local
+  fallback: anthropic_sonnet
+
+memory_scope: agent
+runtime_access:
+  - reasoning
+  - files
+  - tools
+  - memory
+
+permissions:
+  file_read: true
+  file_write: true
+  shell_exec: false      # coder writes code, tool_operator executes it
+  network_access: false
+  mcp_call: true
+  api_call: false
+  memory_read: true
+  memory_write: true
+  sub_agent_delegate: false
+
+tools:
+  - read_file
+  - write_file
+  - list_files
+  - search_code
+
+skills:
+  - code_generation
+  - code_review
+
+sub_agents: []

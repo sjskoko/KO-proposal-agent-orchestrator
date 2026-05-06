@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLI 레퍼런스 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html" class="active">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>CLI 레퍼런스</h1>
+  <p class="page-subtitle"><code>agent</code> 커맨드의 모든 옵션</p>
+
+  <h2>전역 사용법</h2>
+  <pre>
+agent [COMMAND] [OPTIONS]</pre>
+  <pre>
+# 도움말
+agent --help
+agent run --help</pre>
+
+  <h2>agent run</h2>
+  <p>단일 목표를 실행하고 결과를 출력한 뒤 종료합니다.</p>
+  <pre>
+agent run [OPTIONS] GOAL</pre>
+  <table>
+    <tr><th>옵션</th><th>기본값</th><th>설명</th></tr>
+    <tr><td><code>GOAL</code></td><td>필수</td><td>에이전트에게 전달할 목표 문자열</td></tr>
+    <tr><td><code>--agent, -a</code></td><td>main_agent</td><td>사용할 에이전트 ID</td></tr>
+    <tr><td><code>--config, -c</code></td><td>config/</td><td>설정 디렉토리 경로</td></tr>
+  </table>
+  <pre>
+# 예시
+agent run "Python 피보나치 함수 작성해줘"
+agent run "workspace/data.csv 분석해줘" --agent coder
+agent run "최신 뉴스 검색해줘" -a researcher -c /path/to/config</pre>
+
+  <h2>agent repl</h2>
+  <p>인터랙티브 대화 세션을 시작합니다. 한 세션 동안 메모리가 유지됩니다.</p>
+  <pre>
+agent repl [OPTIONS]</pre>
+  <table>
+    <tr><th>옵션</th><th>기본값</th><th>설명</th></tr>
+    <tr><td><code>--agent, -a</code></td><td>main_agent</td><td>사용할 에이전트 ID</td></tr>
+    <tr><td><code>--config, -c</code></td><td>config/</td><td>설정 디렉토리 경로</td></tr>
+  </table>
+  <pre>
+# 예시
+agent repl
+agent repl --agent researcher
+
+# REPL 내부
+> 안녕하세요
+> workspace/notes.txt 파일 읽어서 요약해줘
+> /quit   ← 종료 (exit, quit도 동작)</pre>
+
+  <h2>agent replay</h2>
+  <p>저장된 트레이스 파일을 읽어 실행 기록을 출력합니다.</p>
+  <pre>
+agent replay TRACE_FILE</pre>
+  <table>
+    <tr><th>인수</th><th>설명</th></tr>
+    <tr><td><code>TRACE_FILE</code></td><td>data/traces/*.jsonl 파일 경로</td></tr>
+  </table>
+  <pre>
+# 예시
+agent replay data/traces/a1b2c3d4.jsonl
+
+# 출력
+001 AgentStartedEvent     agent_id=main_agent
+002 TaskDispatchedEvent   task_id=f3a1  runtime_id=files
+003 ToolCalledEvent       tool_id=read_file  latency_ms=12.4
+004 ModelQueriedEvent     provider=gemma4_local  tokens=640
+005 AgentDoneEvent        success=True</pre>
+
+  <h2>스크립트</h2>
+  <h3>setup_local.sh</h3>
+  <pre>bash scripts/setup_local.sh
+# - Python venv 생성
+# - pip install -e ".[dev]"
+# - .env 파일 복사
+# - workspace, data 디렉토리 생성
+# - Ollama 확인 및 gemma4:27b 다운로드 시도</pre>
+
+  <h3>run_agent.sh</h3>
+  <pre>bash scripts/run_agent.sh "목표 문자열" [agent_id]
+# 예시
+bash scripts/run_agent.sh "코드 리뷰해줘" coder</pre>
+
+  <h3>run_tests.sh</h3>
+  <pre>bash scripts/run_tests.sh [all|unit|integration|agent|skill]
+bash scripts/run_tests.sh unit          # 단위 테스트만
+bash scripts/run_tests.sh all           # 전체</pre>
+</main>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>모델 & 라우팅 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html" class="active">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>모델 & 라우팅</h1>
+  <p class="page-subtitle">Gemma 4를 기본으로, API 공급자를 선택적 폴백으로 사용하는 방법</p>
+
+  <h2>공급자 우선순위</h2>
+  <div class="flow">요청 발생
+    │
+    ▼ 라우팅 규칙 확인 (task_type, context_tokens 등 매칭)
+    │   매칭된 공급자 → 가용하면 사용
+    │
+    ▼ fallback_chain 순서대로 시도
+    │
+    ├─ gemma4_local  (priority 1, 항상 1순위)
+    │     ↓ 비가용 또는 비용 초과
+    ├─ gemma4_local_small  (priority 2)
+    │     ↓
+    ├─ openai_gpt4o  (priority 3, API 키 필요)
+    │     ↓
+    └─ anthropic_sonnet  (priority 4, API 키 필요)</div>
+
+  <h2>공급자 설정 (<code>config/models.yaml</code>)</h2>
+  <pre>
+providers:
+  gemma4_local:
+    type: local
+    backend: ollama
+    model: gemma4:27b            # ollama list 로 확인
+    base_url: http://localhost:11434
+    context_window: 131072
+    priority: 1
+
+  gemma4_local_small:
+    type: local
+    backend: ollama
+    model: gemma4:12b
+    base_url: http://localhost:11434
+    priority: 2
+
+  openai_gpt4o:
+    type: api
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY  # .env에서 읽어옴
+    priority: 3
+    rate_limit:
+      rpm: 60                    # 분당 요청
+      tpm: 100000                # 분당 토큰
+    cost_control:
+      max_cost_per_session_usd: 1.00
+
+  anthropic_sonnet:
+    type: api
+    model: claude-sonnet-4-6
+    api_key_env: ANTHROPIC_API_KEY
+    priority: 4</pre>
+
+  <h2>라우팅 규칙</h2>
+  <pre>
+routing:
+  rules:
+    # 코드 생성 작업 → 로컬 모델로
+    - match: { task_type: code_generation }
+      prefer: gemma4_local
+
+    # 웹 검색 요약 → GPT-4o로
+    - match: { task_type: web_search_summary }
+      prefer: openai_gpt4o
+
+    # 긴 문서 처리 → 컨텍스트 큰 로컬 모델로
+    - match: { context_tokens: ">100000" }
+      prefer: gemma4_local
+
+  fallback_chain:
+    - gemma4_local
+    - gemma4_local_small
+    - openai_gpt4o
+    - anthropic_sonnet</pre>
+
+  <h2>비용 제어</h2>
+  <table>
+    <tr><th>설정</th><th>위치</th><th>설명</th></tr>
+    <tr><td><code>max_cost_per_session_usd</code></td><td>providers.{id}.cost_control</td><td>공급자별 세션 비용 한도</td></tr>
+    <tr><td><code>max_cost_usd</code></td><td>agents/{id}.yaml model_policy</td><td>에이전트별 비용 한도</td></tr>
+    <tr><td><code>rpm</code> / <code>tpm</code></td><td>providers.{id}.rate_limit</td><td>분당 요청/토큰 제한</td></tr>
+  </table>
+  <pre>
+# 에이전트별 비용 한도 설정
+# agents/researcher.yaml
+model_policy:
+  preferred: gemma4_local
+  fallback: openai_gpt4o
+  max_cost_usd: 0.10    # 이 에이전트가 세션당 $0.10 이상 쓰면 로컬로 강제 전환</pre>
+
+  <h2>재시도 정책</h2>
+  <pre>
+retry:
+  max_attempts: 3
+  backoff: exponential     # exponential | linear | none
+  backoff_base_ms: 500     # 첫 재시도 대기 500ms
+  max_backoff_ms: 10000    # 최대 10초
+
+# 재시도 간격
+# 1차 실패 후: 500ms
+# 2차 실패 후: 1000ms
+# 3차 실패 후: 포기 → 다음 공급자로</pre>
+
+  <h2>새 공급자 추가</h2>
+  <pre>
+# core/model/providers/my_provider.py
+from core.model.base import Message, ModelOptions, ModelResponse
+from typing import Iterator
+
+class MyProvider:
+    name = "my_provider"
+
+    def complete(self, messages: list[Message], options: ModelOptions | None = None) -> ModelResponse:
+        # ... API 호출
+        return ModelResponse(
+            content="응답 내용",
+            model="my-model",
+            provider=self.name,
+            input_tokens=100,
+            output_tokens=50,
+        )
+
+    def stream(self, messages: list[Message], options: ModelOptions | None = None) -> Iterator[str]:
+        yield "스트리밍 응답"
+
+    def health_check(self) -> bool:
+        return True  # API 키 확인 등</pre>
+  <pre>
+# config/models.yaml에 추가
+providers:
+  my_provider:
+    type: api
+    model: my-model-name
+    api_key_env: MY_API_KEY
+    priority: 5
+
+fallback_chain:
+  - gemma4_local
+  - my_provider   # ← 추가</pre>
+</main>
+</body>
+</html>

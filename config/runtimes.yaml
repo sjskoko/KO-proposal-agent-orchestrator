@@ -1,0 +1,47 @@
+runtimes:
+  reasoning:
+    enabled: true
+    module: runtimes.reasoning.ReasoningRuntime
+    config:
+      strategy: chain_of_thought
+      max_reflection_steps: 3
+
+  tools:
+    enabled: true
+    module: runtimes.tools.ToolRuntime
+    config:
+      timeout_seconds: 30
+      sandbox: true
+
+  files:
+    enabled: true
+    module: runtimes.files.FileRuntime
+    config:
+      allowed_roots:
+        - ./workspace
+        - /tmp/agent_workspace
+      max_file_size_mb: 50
+
+  browser:
+    enabled: false
+    module: runtimes.browser.BrowserRuntime
+    config:
+      headless: true
+      browser: chromium
+      timeout_seconds: 60
+
+  memory:
+    enabled: true
+    module: runtimes.memory.MemoryRuntime
+    config:
+      backend: in_memory        # change to "chroma" for persistent vector memory
+      persist_path: ./data/memory
+      embedding_model: nomic-embed-text
+
+  api:
+    enabled: true
+    module: runtimes.api.ApiRuntime
+    config:
+      timeout_seconds: 15
+      max_redirects: 3
+      allowed_domains: []       # empty = all domains allowed; add entries to whitelist

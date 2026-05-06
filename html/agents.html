@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>에이전트 설정 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html" class="active">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>에이전트 설정</h1>
+  <p class="page-subtitle">YAML로 에이전트를 정의하고 조합하는 방법</p>
+
+  <h2>내장 에이전트</h2>
+  <table>
+    <tr><th>ID</th><th>역할</th><th>위임 가능한 서브에이전트</th><th>특이사항</th></tr>
+    <tr><td><code>main_agent</code></td><td>오케스트레이터</td><td>researcher, coder, file_worker, tool_operator</td><td>네트워크·셸 불가</td></tr>
+    <tr><td><code>researcher</code></td><td>웹 리서처</td><td>없음</td><td>browser, api 접근</td></tr>
+    <tr><td><code>coder</code></td><td>코드 생성·리뷰</td><td>없음</td><td>파일 읽기/쓰기, 셸 불가</td></tr>
+    <tr><td><code>file_worker</code></td><td>파일 관리</td><td>없음</td><td>파일 읽기/쓰기만</td></tr>
+    <tr><td><code>tool_operator</code></td><td>셸 실행 전담</td><td>없음</td><td>셸 실행 유일하게 허용</td></tr>
+  </table>
+
+  <div class="callout callout-warn">
+    <strong>왜 셸 실행을 tool_operator에만 허용할까요?</strong>
+    셸 실행은 가장 위험한 권한입니다. 전담 에이전트 하나에만 집중시키면,
+    다른 에이전트가 프롬프트 인젝션 공격을 받아도 셸에는 접근할 수 없습니다.
+  </div>
+
+  <h2>YAML 전체 레퍼런스</h2>
+  <pre>
+id: my_agent                      # 필수. CLI --agent 옵션에서 참조하는 이름
+role: specialist                   # 역할 설명 (시스템 프롬프트에 포함됨)
+goal: "이 에이전트의 목적"          # 목적 기술 (플래닝 프롬프트에 포함됨)
+
+# ── 모델 정책 ──────────────────────────────────────────────
+model_policy:
+  preferred: gemma4_local           # 1순위 공급자 ID (config/models.yaml 참조)
+  fallback: openai_gpt4o            # 실패·비가용 시 폴백
+  max_cost_usd: 0.10                # 이 에이전트의 세션당 최대 API 비용
+
+# ── 메모리 범위 ─────────────────────────────────────────────
+memory_scope: agent                 # session | agent | global
+#   session: 현재 세션에서만 유효
+#   agent:   이 에이전트 ID로 영구 저장
+#   global:  모든 에이전트가 공유
+
+# ── 런타임 접근 ─────────────────────────────────────────────
+runtime_access:                     # 이 에이전트가 호출할 수 있는 런타임 목록
+  - reasoning
+  - files
+  - memory
+
+# ── 권한 ────────────────────────────────────────────────────
+permissions: worker                 # 이름으로 참조 (config/permissions.yaml)
+# 또는 인라인 직접 지정:
+# permissions:
+#   file_read: true
+#   file_write: true
+#   shell_exec: false
+#   network_access: false
+#   mcp_call: true
+#   api_call: false
+#   memory_read: true
+#   memory_write: true
+#   sub_agent_delegate: true
+
+# ── 도구 & 스킬 ─────────────────────────────────────────────
+tools:                              # 사용 가능한 툴 ID (config/tools.yaml 참조)
+  - read_file
+  - write_file
+
+skills:                             # 사용 가능한 스킬 ID (skills/ 폴더 자동 감지)
+  - web_research
+
+# ── 서브에이전트 ─────────────────────────────────────────────
+sub_agents:                         # 위임 가능한 서브에이전트 ID 목록
+  - researcher</pre>
+
+  <h2>에이전트 패턴</h2>
+
+  <h3>패턴 1: Planner-Worker</h3>
+  <p>main_agent가 플랜을 세우고, 전문 서브에이전트에게 위임합니다.</p>
+  <pre>
+# main_agent.yaml
+sub_agents: [researcher, coder, file_worker]
+
+# 실행 흐름
+main_agent: "보고서 작성해줘"
+  └─ researcher에게 위임: "관련 자료 검색해줘"
+  └─ coder에게 위임: "검색 결과로 코드 예시 작성"
+  └─ file_worker에게 위임: "workspace/report.md 저장"</pre>
+
+  <h3>패턴 2: Supervisor-Specialist</h3>
+  <p>오케스트레이터가 전체를 감독하고, 전문가에게 특정 도메인 작업을 맡깁니다.</p>
+  <pre>
+# supervisor.yaml
+id: supervisor
+role: supervisor
+sub_agents: [domain_expert_1, domain_expert_2, qa_agent]
+
+# domain_expert_1.yaml
+id: domain_expert_1
+role: specialist
+goal: "금융 데이터 분석 전문가"</pre>
+
+  <h3>패턴 3: Tool-Executor</h3>
+  <p>tool_operator처럼 한 가지 실행 권한만 가진 에이전트가 실제 작업을 처리합니다.</p>
+  <pre>
+# 예: Docker 명령만 실행하는 전담 에이전트
+id: docker_operator
+role: tool-executor
+permissions:
+  shell_exec: true
+  file_read: true
+  file_write: false
+  network_access: false</pre>
+
+  <h2>새 에이전트 추가 (단계별)</h2>
+  <pre>
+# 1. YAML 파일 생성
+cp agents/sub_agents/researcher.yaml agents/sub_agents/my_analyst.yaml
+
+# 2. id, role, goal, permissions, tools, skills 수정
+
+# 3. 부모 에이전트의 sub_agents에 추가
+# agents/main_agent.yaml:
+#   sub_agents:
+#     - my_analyst   ← 추가
+
+# 4. 즉시 사용 가능
+agent run "데이터 분석해줘" --agent my_analyst</pre>
+
+  <div class="callout callout-tip">
+    <strong>팁: 권한은 최소화하세요</strong>
+    에이전트에게 필요한 권한만 부여하세요.
+    <code>read_only</code>나 <code>worker</code>로 시작해서 필요할 때만 추가하는 방식을 권장합니다.
+  </div>
+</main>
+</body>
+</html>

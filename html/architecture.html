@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>전체 구조 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html" class="active">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>전체 구조</h1>
+  <p class="page-subtitle">레이어별 책임과 데이터 흐름</p>
+
+  <h2>실행 흐름</h2>
+  <div class="flow">사용자 입력 (CLI / API)
+        │  goal 문자열
+        ▼
+┌─────────────────────────────────────┐
+│          apps/cli · api_server       │  ← 진입점. 목표를 받아 Agent에 전달
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────────────────┐
+│                   core/agent  (Agent)                │
+│  1. AgentDefinition YAML 로드                        │
+│  2. PermissionChecker 생성                           │
+│  3. 상태머신: idle → planning → executing → done     │
+└──────────┬────────────────────┬──────────────────────┘
+           │                    │
+           ▼                    ▼
+┌────────────────┐   ┌──────────────────────┐
+│  core/planner  │   │  core/events (Bus)    │
+│  - Gemma 4에게 │   │  - 모든 이벤트 수신   │
+│    단계 분해   │   │  - JSONL 트레이스 기록│
+│  - TaskGraph   │   └──────────────────────┘
+│    (DAG) 생성  │
+└──────┬─────────┘
+       │  TaskGraph
+       ▼
+┌──────────────────────────────────────────────────────┐
+│                  core/executor                        │
+│  - 의존성 순서로 노드 실행                             │
+│  - 노드마다 PermissionChecker.require() 호출          │
+│  - 실패 → RetryPolicy (지수 백오프, 최대 3회)          │
+└──────┬───────────────┬─────────────────┬─────────────┘
+       │               │                 │
+       ▼               ▼                 ▼
+┌──────────┐  ┌──────────────┐  ┌────────────────────┐
+│ runtime  │  │   tooling    │  │  sub-agent 위임     │
+│ registry │  │   registry   │  │  (child Agent)      │
+└────┬─────┘  └──────┬───────┘  └────────┬────────────┘
+     │               │                   │
+     ▼               ▼                   ▼
+  runtimes/*     skills/*/           동일한 흐름
+  (6개 런타임)    handler.py          재귀 실행
+                 mcp/adapters/</div>
+
+  <h2>레이어별 책임</h2>
+
+  <h3>앱 레이어 (<code>apps/</code>)</h3>
+  <p>사용자 또는 외부 시스템의 진입점입니다. <code>core</code>의 어떤 것도 알지 못하고,
+  단순히 목표 문자열을 받아 <code>Agent.run(goal)</code>을 호출하고 결과를 출력합니다.</p>
+  <table>
+    <tr><th>컴포넌트</th><th>파일</th><th>역할</th></tr>
+    <tr><td>CLI</td><td><code>apps/cli/main.py</code></td><td>Typer 커맨드 라인 인터페이스</td></tr>
+    <tr><td>Runner</td><td><code>apps/cli/runner.py</code></td><td>시스템 부트스트랩 (공유 로직)</td></tr>
+    <tr><td>REPL</td><td><code>apps/cli/repl.py</code></td><td>인터랙티브 루프</td></tr>
+    <tr><td>API 서버</td><td><code>apps/api_server/main.py</code></td><td>FastAPI REST 엔드포인트</td></tr>
+  </table>
+
+  <h3>에이전트 코어 (<code>core/agent/</code>)</h3>
+  <p>에이전트의 정체성과 생명주기를 담당합니다. YAML에서 정의를 로드하고,
+  상태머신으로 플래닝→실행→완료 흐름을 관리합니다.</p>
+  <table>
+    <tr><th>파일</th><th>역할</th></tr>
+    <tr><td><code>definition.py</code></td><td>YAML → AgentDefinition 파싱</td></tr>
+    <tr><td><code>state.py</code></td><td>idle/planning/executing/done 상태머신</td></tr>
+    <tr><td><code>delegation.py</code></td><td>서브에이전트 위임 Protocol</td></tr>
+    <tr><td><code>base.py</code></td><td>Agent 클래스 — 모든 것을 묶는 오케스트레이터</td></tr>
+  </table>
+
+  <h3>플래너 (<code>core/planner/</code>)</h3>
+  <p>목표 문자열을 받아 실행 가능한 단계 그래프(DAG)로 변환합니다.
+  모델에게 JSON 배열로 단계를 반환하도록 요청하고, 이를 <code>TaskGraph</code>로 변환합니다.</p>
+
+  <h3>실행기 (<code>core/executor/</code>)</h3>
+  <p>TaskGraph를 순회하며 준비된 노드를 실행합니다.
+  각 노드는 런타임 호출, 툴 호출, 서브에이전트 위임 중 하나입니다.
+  실패 시 지수 백오프로 재시도합니다.</p>
+
+  <h3>런타임 레지스트리 (<code>core/runtime/</code>)</h3>
+  <p><code>runtimes.yaml</code>을 읽어 런타임 인스턴스를 lazy-load합니다.
+  실행기는 런타임 ID만 알고, 구현체는 모릅니다.</p>
+
+  <h2>설계 원칙</h2>
+  <table>
+    <tr><th>원칙</th><th>구현 방식</th></tr>
+    <tr><td>설정 주도</td><td><code>core/</code> 안에 모델명, 툴명, 경로 하드코딩 없음</td></tr>
+    <tr><td>Protocol 경계</td><td>모든 크로스-모듈 계약은 <code>typing.Protocol</code></td></tr>
+    <tr><td>권한 강제</td><td>런타임/MCP 호출 전 반드시 <code>PermissionChecker.require()</code></td></tr>
+    <tr><td>런타임 격리</td><td>한 런타임 크래시가 다른 런타임에 영향 없음</td></tr>
+    <tr><td>완전한 관측성</td><td>모든 스텝이 이벤트 버스 → JSONL 파일로 기록</td></tr>
+    <tr><td>로컬 우선</td><td>Gemma 4가 항상 fallback_chain 1순위</td></tr>
+  </table>
+</main>
+</body>
+</html>

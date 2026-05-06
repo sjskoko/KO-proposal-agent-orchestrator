@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP 연결 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html" class="active">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>MCP 서버 연결</h1>
+  <p class="page-subtitle">Model Context Protocol 서버를 설정 파일 한 줄로 연결하는 방법</p>
+
+  <div class="callout callout-info">
+    <strong>MCP란?</strong>
+    Model Context Protocol은 에이전트가 외부 도구(파일시스템, 데이터베이스, API 등)를
+    표준화된 방식으로 호출하는 프로토콜입니다.
+    이 시스템은 stdio 트랜스포트를 지원합니다.
+  </div>
+
+  <h2>내장 MCP 설정 파일</h2>
+  <table>
+    <tr><th>파일</th><th>서버</th><th>기본 상태</th><th>필요 조건</th></tr>
+    <tr><td><code>filesystem_server.yaml</code></td><td>@modelcontextprotocol/server-filesystem</td><td><span class="badge badge-green">활성</span></td><td>Node.js</td></tr>
+    <tr><td><code>brave_search.yaml</code></td><td>@modelcontextprotocol/server-brave-search</td><td><span class="badge badge-yellow">비활성</span></td><td>BRAVE_API_KEY</td></tr>
+  </table>
+
+  <h2>Filesystem MCP 서버 활성화</h2>
+  <pre>
+# mcp/configs/filesystem_server.yaml — 이미 활성화 상태
+id: mcp_filesystem
+transport: stdio
+command: npx
+args:
+  - "-y"
+  - "@modelcontextprotocol/server-filesystem"
+  - "./workspace"         # 접근 허용 디렉토리
+capabilities:
+  - read_file
+  - write_file
+  - list_directory
+permissions_required:
+  - file_read
+  - file_write
+enabled: true             # ← 이미 true</pre>
+
+  <h2>Brave Search MCP 서버 활성화</h2>
+  <pre>
+# 1. .env에 API 키 추가
+BRAVE_API_KEY=BSA...
+
+# 2. mcp/configs/brave_search.yaml 수정
+enabled: true   # false → true
+
+# 3. 에이전트에 검색 툴 허용
+# agents/sub_agents/researcher.yaml
+tools:
+  - mcp_brave_search__web_search
+permissions:
+  network_access: true
+  api_call: true</pre>
+
+  <h2>커스텀 MCP 서버 추가</h2>
+  <h3>1. 설정 파일 작성</h3>
+  <pre>
+# mcp/configs/my_server.yaml
+id: mcp_my_server
+transport: stdio
+command: python
+args:
+  - "-m"
+  - "mcp.servers.my_server"
+
+# 환경 변수 주입 (선택)
+env:
+  MY_API_KEY: "${MY_API_KEY}"
+
+capabilities:
+  - my_tool_a
+  - my_tool_b
+
+permissions_required:
+  - api_call
+
+enabled: true
+description: "내 커스텀 MCP 서버 설명"</pre>
+
+  <h3>2. 서버 구현</h3>
+  <pre>
+# mcp/servers/my_server/__init__.py  (비워두기)
+
+# mcp/servers/my_server/server.py
+from mcp.server import Server
+from mcp.server.models import InitializationOptions
+import mcp.types as types
+
+app = Server("my_server")
+
+@app.list_tools()
+async def list_tools() -> list[types.Tool]:
+    return [
+        types.Tool(
+            name="my_tool_a",
+            description="첫 번째 도구 설명",
+            inputSchema={
+                "type": "object",
+                "required": ["param1"],
+                "properties": {
+                    "param1": {"type": "string", "description": "첫 번째 파라미터"}
+                }
+            }
+        )
+    ]
+
+@app.call_tool()
+async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
+    if name == "my_tool_a":
+        result = f"param1 = {arguments['param1']}"
+        return [types.TextContent(type="text", text=result)]
+    raise ValueError(f"Unknown tool: {name}")
+
+if __name__ == "__main__":
+    import asyncio
+    from mcp.server.stdio import stdio_server
+
+    async def main():
+        async with stdio_server() as (read_stream, write_stream):
+            await app.run(read_stream, write_stream,
+                          InitializationOptions(server_name="my_server"))
+    asyncio.run(main())</pre>
+
+  <h3>3. 에이전트에 연결</h3>
+  <pre>
+# agents/sub_agents/my_agent.yaml
+tools:
+  - mcp_my_server__my_tool_a   # 형식: mcp_{서버ID}__{툴이름}
+
+permissions:
+  mcp_call: true
+  api_call: true               # 서버가 api_call 권한을 요구하는 경우</pre>
+
+  <h2>MCP 도구 이름 규칙</h2>
+  <p>에이전트의 <code>tools</code> 목록에서 MCP 도구를 참조할 때:</p>
+  <pre>
+# 형식: mcp_{설정파일의 id}__{MCP 서버의 툴이름}
+mcp_filesystem__read_file
+mcp_filesystem__write_file
+mcp_brave_search__web_search
+mcp_my_server__my_tool_a</pre>
+
+  <div class="callout callout-tip">
+    <strong>자동 등록</strong>
+    부팅 시 <code>mcp/configs/</code>의 모든 YAML을 스캔합니다.
+    <code>enabled: true</code>인 서버가 시작되고, 해당 도구들이 <code>ToolRegistry</code>에 자동 등록됩니다.
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,28 @@
+id: main_agent
+role: orchestrator
+goal: "Receive user tasks, decompose them into a plan, delegate steps to sub-agents or tools, and synthesize the final result."
+
+model_policy:
+  preferred: gemma4_local
+  fallback: openai_gpt4o
+  max_cost_usd: 0.50
+
+memory_scope: session
+runtime_access:
+  - reasoning
+  - memory
+
+permissions: worker
+
+tools:
+  - delegate_task
+  - read_memory
+  - write_memory
+
+skills: []
+
+sub_agents:
+  - researcher
+  - coder
+  - file_worker
+  - tool_operator

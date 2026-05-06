@@ -1,0 +1,228 @@
+/* Gemma Agent Docs — shared stylesheet */
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #222535;
+  --border: #2e3150;
+  --accent: #6c8fff;
+  --accent2: #a78bfa;
+  --green: #4ade80;
+  --red: #f87171;
+  --yellow: #fbbf24;
+  --text: #e2e8f0;
+  --muted: #8892aa;
+  --code-bg: #0d1117;
+  --radius: 8px;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --font-sans: "Inter", "Noto Sans KR", system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.7;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Layout ── */
+nav.sidebar {
+  width: 260px;
+  min-width: 260px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 24px 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+main.content {
+  flex: 1;
+  padding: 48px 56px;
+  max-width: 900px;
+}
+
+/* ── Sidebar ── */
+.sidebar-logo {
+  padding: 0 20px 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.sidebar-logo h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -.3px;
+}
+.sidebar-logo span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+nav.sidebar ul { list-style: none; }
+nav.sidebar li a {
+  display: block;
+  padding: 6px 20px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13.5px;
+  border-left: 2px solid transparent;
+  transition: color .15s, border-color .15s, background .15s;
+}
+nav.sidebar li a:hover,
+nav.sidebar li a.active {
+  color: var(--text);
+  border-left-color: var(--accent);
+  background: rgba(108,143,255,.07);
+}
+nav.sidebar .nav-group {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 14px 20px 4px;
+}
+
+/* ── Typography ── */
+h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.5px; margin-bottom: 8px; }
+h2 { font-size: 1.4rem; font-weight: 700; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.1rem; font-weight: 600; margin: 32px 0 12px; color: var(--accent2); }
+h4 { font-size: .95rem; font-weight: 600; margin: 20px 0 8px; }
+p  { margin-bottom: 14px; }
+a  { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.page-subtitle {
+  color: var(--muted);
+  font-size: 1rem;
+  margin-bottom: 40px;
+}
+
+/* ── Code ── */
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  overflow-x: auto;
+  margin: 16px 0 24px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+}
+code {
+  font-family: var(--font-mono);
+  font-size: .875em;
+}
+p code, li code, td code {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: var(--accent2);
+}
+
+/* ── Tables ── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 14px;
+}
+th {
+  background: var(--surface2);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+}
+td {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+tr:nth-child(even) td { background: rgba(255,255,255,.02); }
+
+/* ── Badges ── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-green  { background: rgba(74,222,128,.15); color: var(--green); }
+.badge-blue   { background: rgba(108,143,255,.15); color: var(--accent); }
+.badge-yellow { background: rgba(251,191,36,.15); color: var(--yellow); }
+.badge-red    { background: rgba(248,113,113,.15); color: var(--red); }
+
+/* ── Callouts ── */
+.callout {
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin: 20px 0;
+  border-left: 3px solid;
+  font-size: 14px;
+}
+.callout-info  { background: rgba(108,143,255,.08); border-color: var(--accent); }
+.callout-warn  { background: rgba(251,191,36,.08);  border-color: var(--yellow); }
+.callout-tip   { background: rgba(74,222,128,.08);  border-color: var(--green); }
+.callout strong { display: block; margin-bottom: 4px; }
+
+/* ── Cards ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 20px 0 32px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: border-color .2s;
+}
+.card:hover { border-color: var(--accent); }
+.card h4 { margin-top: 0; color: var(--accent); font-size: .95rem; }
+.card p  { font-size: 13px; color: var(--muted); margin: 0; }
+
+/* ── Flow diagram ── */
+.flow {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-x: auto;
+  white-space: pre;
+  margin: 16px 0 24px;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  body { flex-direction: column; }
+  nav.sidebar { width: 100%; height: auto; position: relative; }
+  main.content { padding: 24px 20px; }
+}

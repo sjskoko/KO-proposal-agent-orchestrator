@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스킬 개발 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html" class="active">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>스킬 개발</h1>
+  <p class="page-subtitle">재사용 가능한 작업 단위를 만들고 에이전트에 연결하는 방법</p>
+
+  <h2>스킬 구조</h2>
+  <p>스킬은 <code>skills/&lt;skill_id&gt;/</code> 폴더 안의 4개 파일로 구성됩니다.</p>
+  <pre>
+skills/
+└── my_skill/
+    ├── skill.yaml       ← ID, 버전, 입출력 스키마, 필요 런타임
+    ├── instructions.md  ← 에이전트가 이 스킬을 언제/어떻게 쓰는지 설명
+    ├── handler.py       ← run() 함수 — 실제 실행 로직
+    └── tests/
+        └── test_handler.py</pre>
+
+  <h2>skill.yaml 작성</h2>
+  <pre>
+id: my_skill                    # 고유 ID. 에이전트 YAML의 skills 목록에서 참조
+version: "1.0.0"
+name: 내 스킬
+description: "이 스킬이 하는 일을 한 문장으로"
+
+runtime_required:               # 이 스킬이 필요한 런타임
+  - api
+  - reasoning
+
+permissions_required:           # 이 스킬을 쓰려면 에이전트가 가져야 할 권한
+  - network_access
+
+inputs:
+  - name: query
+    type: string
+    required: true
+    description: "검색어 또는 질문"
+  - name: max_results
+    type: integer
+    default: 10
+    description: "최대 결과 수 (1-50)"
+
+outputs:
+  - name: results
+    type: array
+    items:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+  - name: summary
+    type: string
+
+timeout_seconds: 30
+enabled: true
+
+# 스킬 자동 테스트 케이스 (선택)
+test_cases:
+  - name: basic_query
+    inputs:
+      query: "테스트 쿼리"
+      max_results: 1
+    expect:
+      outputs.summary: { not_empty: true }</pre>
+
+  <h2>handler.py 작성</h2>
+  <pre>
+# skills/my_skill/handler.py
+
+def run(inputs: dict, context=None) -> dict:
+    """
+    필수 함수. 스킬 러너가 이 함수를 호출합니다.
+
+    Args:
+        inputs: skill.yaml inputs 스키마를 따르는 딕셔너리
+        context: AgentContext — get_runtime(), get_model() 제공
+
+    Returns:
+        skill.yaml outputs 스키마와 일치하는 딕셔너리
+    """
+    query = inputs["query"]
+    max_results = inputs.get("max_results", 10)
+
+    # ── 런타임 사용 예시 ──────────────────────────────
+    if context:
+        # HTTP 요청
+        api = context.get_runtime("api")
+        from core.runtime.base import RuntimeCall
+        result = api.execute(RuntimeCall(
+            runtime_id="api",
+            operation="http_get",
+            params={"url": f"https://api.example.com/search?q={query}"}
+        ))
+        raw_results = result.data.get("body", "[]")
+
+        # 모델로 요약
+        model = context.get_model()
+        from core.model.base import Message, ModelOptions
+        summary_resp = model.complete(
+            [Message(role="user", content=f"요약해줘: {raw_results}")],
+            ModelOptions(temperature=0.3)
+        )
+        return {"results": [], "summary": summary_resp.content}
+
+    # context 없을 때 안전한 폴백
+    return {"results": [], "summary": f"'{query}' 검색 결과 없음"}
+
+
+def validate_inputs(inputs: dict) -> list[str]:
+    """
+    선택적 함수. 입력 검증.
+    오류 메시지 목록 반환 (빈 리스트 = 유효)
+    """
+    errors = []
+    if not inputs.get("query", "").strip():
+        errors.append("query는 비어있을 수 없습니다")
+    max_r = inputs.get("max_results", 10)
+    if not (1 <= max_r <= 50):
+        errors.append("max_results는 1~50 사이여야 합니다")
+    return errors</pre>
+
+  <h2>instructions.md 작성</h2>
+  <pre>
+# 내 스킬 이름
+
+## 목적
+이 스킬이 해결하는 문제를 명확히 설명합니다.
+
+## 사용 시기
+- 어떤 상황에서 이 스킬을 사용해야 하는지
+- 어떤 상황에서는 사용하지 말아야 하는지
+
+## 동작 방식
+1. 입력을 받아 처리하는 단계별 설명
+2. 어떤 런타임/API를 사용하는지
+
+## 출력 형식
+- summary: 결과를 요약한 텍스트
+- results: 세부 결과 배열
+
+## 주의사항
+- 알려진 제한사항
+- 에러가 날 수 있는 케이스</pre>
+
+  <h2>스킬 테스트 작성</h2>
+  <pre>
+# skills/my_skill/tests/test_handler.py
+import pytest
+from skills.my_skill.handler import run, validate_inputs
+
+class TestValidate:
+    def test_valid(self):
+        assert validate_inputs({"query": "test"}) == []
+
+    def test_empty_query(self):
+        errors = validate_inputs({"query": ""})
+        assert any("query" in e for e in errors)
+
+class TestRun:
+    def test_no_context_returns_safe_fallback(self):
+        result = run({"query": "test"}, context=None)
+        assert "summary" in result
+        assert "results" in result
+
+    def test_with_real_context(self, mock_context):
+        # mock_context fixture를 conftest.py에 정의
+        result = run({"query": "Python"}, context=mock_context)
+        assert isinstance(result["summary"], str)</pre>
+
+  <h2>에이전트에 스킬 연결</h2>
+  <pre>
+# agents/sub_agents/my_agent.yaml
+skills:
+  - my_skill        # skills/my_skill/ 폴더 자동 감지
+
+runtime_access:
+  - api             # 스킬이 필요로 하는 런타임도 허용해야 함
+  - reasoning
+
+permissions:
+  network_access: true   # 스킬의 permissions_required와 일치해야 함</pre>
+
+  <h2>스킬 자동 발견</h2>
+  <p>시스템 부팅 시 <code>skills/</code> 하위의 모든 <code>skill.yaml</code>을 자동으로 스캔합니다.
+  <code>enabled: false</code>인 스킬은 무시됩니다. 재시작 없이 스킬을 추가할 수 있습니다.</p>
+</main>
+</body>
+</html>

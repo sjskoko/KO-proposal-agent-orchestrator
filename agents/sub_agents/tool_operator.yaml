@@ -1,0 +1,30 @@
+id: tool_operator
+role: specialist
+goal: "Execute shell commands and tool calls on behalf of other agents in a sandboxed environment."
+
+model_policy:
+  preferred: gemma4_local
+
+memory_scope: session
+runtime_access:
+  - tools
+  - files
+
+permissions:
+  file_read: true
+  file_write: true
+  shell_exec: true        # only this agent can execute shell commands
+  network_access: false
+  mcp_call: false
+  api_call: false
+  memory_read: false
+  memory_write: false
+  sub_agent_delegate: false
+
+tools:
+  - shell_exec
+  - read_file
+  - write_file
+
+skills: []
+sub_agents: []

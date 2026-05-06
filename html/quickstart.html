@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>빠른 시작 — Gemma Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h2>Gemma Agent</h2><span>문서 v0.1.0</span></div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html">개요</a></li>
+    <li><a href="quickstart.html" class="active">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>빠른 시작</h1>
+  <p class="page-subtitle">설치부터 첫 번째 에이전트 실행까지</p>
+
+  <h2>1단계 — 사전 조건 확인</h2>
+  <table>
+    <tr><th>항목</th><th>최소 버전</th><th>확인 방법</th></tr>
+    <tr><td>Python</td><td>3.11</td><td><code>python3 --version</code></td></tr>
+    <tr><td>Ollama</td><td>최신</td><td><code>ollama --version</code></td></tr>
+    <tr><td>RAM</td><td>16GB (27b 모델 기준)</td><td>시스템 정보</td></tr>
+    <tr><td>Node.js</td><td>18 (MCP 사용 시)</td><td><code>node --version</code></td></tr>
+  </table>
+
+  <h2>2단계 — Ollama & Gemma 4 설치</h2>
+  <pre>
+# Ollama 설치 (macOS / Linux)
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Gemma 4 모델 다운로드 (~16GB, 처음 한 번만)
+ollama pull gemma4:27b
+
+# RAM 부족 시 소형 모델
+ollama pull gemma4:12b
+
+# Ollama 서버 실행 (별도 터미널에서 유지)
+ollama serve</pre>
+
+  <h2>3단계 — 프로젝트 설치</h2>
+  <pre>
+git clone &lt;repo-url&gt;
+cd gemma-agent
+
+# 자동 설정 스크립트 (venv 생성 + 패키지 + .env 복사)
+bash scripts/setup_local.sh
+
+# 가상환경 활성화
+source .venv/bin/activate</pre>
+
+  <div class="callout callout-info">
+    <strong>수동 설치가 필요하다면</strong>
+    <code>python3 -m venv .venv &amp;&amp; source .venv/bin/activate &amp;&amp; pip install -e ".[dev]" &amp;&amp; cp config/env.example .env</code>
+  </div>
+
+  <h2>4단계 — 환경 변수 설정</h2>
+  <p><code>.env</code> 파일을 열고 확인합니다. 로컬만 쓴다면 기본값 그대로도 됩니다.</p>
+  <pre>
+# .env
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=gemma4:27b
+
+# API 폴백 (선택 — 없어도 동작)
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=</pre>
+
+  <h2>5단계 — 첫 실행</h2>
+  <pre>
+# 단일 목표 실행
+agent run "Python으로 피보나치 수열 함수 작성해줘"
+
+# 출력 예시:
+# [Planning] 목표를 2개 단계로 분해했습니다
+# [Executing] step 1/2: 함수 작성 (reasoning)
+# [Executing] step 2/2: 코드 검토 (reasoning)
+# ╭─ Result ──────────────────────────────────╮
+# │ def fibonacci(n):                         │
+# │     if n <= 1: return n                   │
+# │     return fibonacci(n-1) + fibonacci(n-2)│
+# ╰───────────────────────────────────────────╯</pre>
+
+  <h2>6단계 — REPL 세션</h2>
+  <pre>
+agent repl
+
+# 프롬프트
+> 오늘 할 일 목록 3개 작성해줘
+  → (Gemma 4가 응답)
+
+> workspace/notes.txt 파일 읽어서 요약해줘
+  → (files 런타임이 파일 읽고 요약)
+
+> /quit</pre>
+
+  <h2>7단계 — 단위 테스트로 설치 확인</h2>
+  <pre>
+# Ollama 없이도 실행 가능
+bash scripts/run_tests.sh unit
+
+# 예상 출력:
+# tests/unit/test_permissions.py ....
+# tests/unit/test_tool_registry.py .....
+# tests/unit/test_model_router.py .....
+# 14 passed in 0.42s</pre>
+
+  <div class="callout callout-tip">
+    <strong>다음 단계</strong>
+    에이전트를 커스터마이즈하려면 <a href="agents.html">에이전트 설정</a>을,
+    새 스킬을 만들려면 <a href="skills.html">스킬 개발</a>을 참고하세요.
+  </div>
+</main>
+</body>
+</html>

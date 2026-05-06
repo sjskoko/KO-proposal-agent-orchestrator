@@ -1,0 +1,28 @@
+id: researcher
+role: specialist
+goal: "Search the web, read documents, and return structured research results with cited sources."
+
+model_policy:
+  preferred: gemma4_local
+  fallback: openai_gpt4o
+
+memory_scope: agent
+runtime_access:
+  - reasoning
+  - browser
+  - api
+  - memory
+
+permissions: worker
+
+tools:
+  - web_search
+  - fetch_url
+  - summarize_document
+  - write_memory
+
+skills:
+  - web_research
+  - source_credibility_check
+
+sub_agents: []

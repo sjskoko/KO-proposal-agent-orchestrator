@@ -1,0 +1,44 @@
+permission_sets:
+  unrestricted:
+    file_read: true
+    file_write: true
+    shell_exec: true
+    network_access: true
+    mcp_call: true
+    api_call: true
+    memory_read: true
+    memory_write: true
+    sub_agent_delegate: true
+
+  worker:
+    file_read: true
+    file_write: true
+    shell_exec: false
+    network_access: false
+    mcp_call: true
+    api_call: false
+    memory_read: true
+    memory_write: true
+    sub_agent_delegate: true
+
+  read_only:
+    file_read: true
+    file_write: false
+    shell_exec: false
+    network_access: false
+    mcp_call: false
+    api_call: false
+    memory_read: true
+    memory_write: false
+    sub_agent_delegate: false
+
+  network_worker:
+    file_read: true
+    file_write: false
+    shell_exec: false
+    network_access: true
+    mcp_call: true
+    api_call: true
+    memory_read: true
+    memory_write: true
+    sub_agent_delegate: false

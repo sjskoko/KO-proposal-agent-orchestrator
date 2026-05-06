@@ -1,0 +1,50 @@
+id: web_research
+version: "1.0.0"
+name: Web Research
+description: "Search and synthesize information from the web."
+author: local
+
+runtime_required:
+  - browser
+  - api
+
+permissions_required:
+  - network_access
+
+inputs:
+  - name: query
+    type: string
+    required: true
+    description: "The search query or research question"
+  - name: max_sources
+    type: integer
+    default: 5
+    description: "Maximum number of sources to consult"
+  - name: output_format
+    type: string
+    enum: [summary, bullet_points, structured]
+    default: summary
+
+outputs:
+  - name: summary
+    type: string
+    description: "Synthesized research summary"
+  - name: sources
+    type: array
+    items:
+      type: object
+      properties:
+        url: { type: string }
+        title: { type: string }
+        snippet: { type: string }
+
+timeout_seconds: 60
+enabled: true
+
+test_cases:
+  - name: basic_query
+    inputs:
+      query: "What is Gemma 4?"
+      max_sources: 2
+    expect:
+      outputs.summary: { not_empty: true }

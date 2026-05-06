@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gemma Agent — 개요</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h2>Gemma Agent</h2>
+    <span>문서 v0.1.0</span>
+  </div>
+  <ul>
+    <li class="nav-group">시작하기</li>
+    <li><a href="index.html" class="active">개요</a></li>
+    <li><a href="quickstart.html">빠른 시작</a></li>
+    <li class="nav-group">아키텍처</li>
+    <li><a href="architecture.html">전체 구조</a></li>
+    <li><a href="runtimes.html">런타임</a></li>
+    <li><a href="model.html">모델 & 라우팅</a></li>
+    <li><a href="permissions.html">권한 시스템</a></li>
+    <li><a href="events.html">이벤트 & 트레이스</a></li>
+    <li class="nav-group">개발 가이드</li>
+    <li><a href="agents.html">에이전트 설정</a></li>
+    <li><a href="skills.html">스킬 개발</a></li>
+    <li><a href="mcp.html">MCP 연결</a></li>
+    <li class="nav-group">운영</li>
+    <li><a href="cli.html">CLI 레퍼런스</a></li>
+    <li><a href="api.html">API 서버</a></li>
+    <li><a href="testing.html">테스트</a></li>
+  </ul>
+</nav>
+
+<main class="content">
+  <h1>Gemma Agent Orchestrator</h1>
+  <p class="page-subtitle">Gemma 4 기반 로컬 에이전트 오케스트레이터 — 설정 주도, 모듈형, 로컬 우선</p>
+
+  <h2>시스템 특징</h2>
+  <div class="card-grid">
+    <div class="card">
+      <h4>로컬 우선</h4>
+      <p>Gemma 4를 Ollama로 로컬 실행. 인터넷 연결 없이도 완전히 동작합니다.</p>
+    </div>
+    <div class="card">
+      <h4>설정 주도</h4>
+      <p>모델명·툴명·경로·API 키가 코드에 없음. 전부 YAML로 조립합니다.</p>
+    </div>
+    <div class="card">
+      <h4>런타임 분리</h4>
+      <p>reasoning / files / browser / api 런타임이 독립적. 하나가 죽어도 나머지는 살아있습니다.</p>
+    </div>
+    <div class="card">
+      <h4>다층 에이전트</h4>
+      <p>main_agent가 researcher, coder, file_worker에게 작업을 위임합니다.</p>
+    </div>
+    <div class="card">
+      <h4>MCP 통합</h4>
+      <p>YAML 한 줄로 MCP 서버를 연결. 코드 수정 불필요.</p>
+    </div>
+    <div class="card">
+      <h4>완전한 관측성</h4>
+      <p>모든 단계가 JSONL 트레이스에 기록. 재생·디버그·비용 분석 가능.</p>
+    </div>
+  </div>
+
+  <h2>구성 요소 한눈에 보기</h2>
+  <table>
+    <tr><th>레이어</th><th>위치</th><th>역할</th></tr>
+    <tr><td>앱</td><td><code>apps/cli</code>, <code>apps/api_server</code></td><td>사용자 진입점</td></tr>
+    <tr><td>에이전트 코어</td><td><code>core/agent</code></td><td>YAML 로드, 상태머신, 서브에이전트 위임</td></tr>
+    <tr><td>플래너</td><td><code>core/planner</code></td><td>목표 → TaskGraph(DAG) 변환</td></tr>
+    <tr><td>실행기</td><td><code>core/executor</code></td><td>DAG 순회, 재시도, 실패 처리</td></tr>
+    <tr><td>런타임</td><td><code>runtimes/*</code></td><td>실제 작업 실행 환경</td></tr>
+    <tr><td>모델</td><td><code>core/model</code></td><td>공급자 추상화, 라우팅, 비용 제어</td></tr>
+    <tr><td>툴링</td><td><code>core/tooling</code></td><td>툴 등록·검증·호출</td></tr>
+    <tr><td>스킬</td><td><code>skills/*</code></td><td>재사용 가능한 작업 단위</td></tr>
+    <tr><td>MCP</td><td><code>mcp/*</code></td><td>외부 MCP 서버 연결·어댑팅</td></tr>
+    <tr><td>권한</td><td><code>core/permissions</code></td><td>능력별 접근 제어</td></tr>
+    <tr><td>이벤트</td><td><code>core/events</code></td><td>버스, 트레이스 로그</td></tr>
+  </table>
+
+  <h2>문서 탐색</h2>
+  <table>
+    <tr><th>목표</th><th>문서 페이지</th></tr>
+    <tr><td>처음 설치하고 실행하고 싶다</td><td><a href="quickstart.html">빠른 시작</a></td></tr>
+    <tr><td>전체 구조를 그림으로 보고 싶다</td><td><a href="architecture.html">전체 구조</a></td></tr>
+    <tr><td>새 에이전트를 만들고 싶다</td><td><a href="agents.html">에이전트 설정</a></td></tr>
+    <tr><td>새 스킬을 개발하고 싶다</td><td><a href="skills.html">스킬 개발</a></td></tr>
+    <tr><td>외부 도구를 MCP로 연결하고 싶다</td><td><a href="mcp.html">MCP 연결</a></td></tr>
+    <tr><td>GPT-4o나 Claude를 폴백으로 쓰고 싶다</td><td><a href="model.html">모델 & 라우팅</a></td></tr>
+    <tr><td>특정 에이전트의 권한을 제한하고 싶다</td><td><a href="permissions.html">권한 시스템</a></td></tr>
+    <tr><td>CLI 명령어를 확인하고 싶다</td><td><a href="cli.html">CLI 레퍼런스</a></td></tr>
+    <tr><td>REST API로 연동하고 싶다</td><td><a href="api.html">API 서버</a></td></tr>
+    <tr><td>테스트를 실행하고 싶다</td><td><a href="testing.html">테스트</a></td></tr>
+  </table>
+</main>
+
+</body>
+</html>
