@@ -19,7 +19,6 @@ import json
 import queue
 import threading
 import time
-from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Generator
@@ -34,20 +33,7 @@ from pydantic import BaseModel
 _CONFIG_DIR = Path("config")
 _AGENTS_DIR = Path("agents")
 
-
-# ---------------------------------------------------------------------------
-# Application lifespan — build shared system once at startup
-# ---------------------------------------------------------------------------
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    from apps.cli.runner import get_shared_system
-    get_shared_system(_CONFIG_DIR)          # warm up: loads model weights, etc.
-    yield
-    # (shutdown logic can go here if needed)
-
-
-app = FastAPI(title="Agent Orchestrator API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Agent Orchestrator API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -299,4 +285,4 @@ if _UI_DIST.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("apps.api_server.main:app", host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run("apps.api_server.main:app", host="0.0.0.0", port=8000, reload=True)
