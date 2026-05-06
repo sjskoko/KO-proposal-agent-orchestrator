@@ -52,6 +52,12 @@ class TestModelRouter:
         with pytest.raises(RuntimeError):
             router.complete([Message(role="user", content="hi")])
 
+    def test_single_provider_fail_fast_without_fallback(self):
+        providers = {"gemma4_local": _FakeProvider("gemma4_local", healthy=False)}
+        router = self._router(providers=providers, fallback_chain=["gemma4_local"])
+        with pytest.raises(RuntimeError):
+            router.complete([Message(role="user", content="hi")])
+
     def test_cost_tracking(self):
         tracker = CostTracker(max_cost_usd=0.0)  # zero budget
         providers = {"a": _FakeProvider("a")}

@@ -22,13 +22,13 @@ echo "==> Creating workspace directories"
 mkdir -p workspace data/memory data/traces
 touch data/memory/.gitkeep data/traces/.gitkeep workspace/.gitkeep
 
-echo "==> Checking Ollama"
-if command -v ollama &>/dev/null; then
-  echo "    Ollama found: $(ollama --version)"
-  echo "    Pulling Gemma 4 model (this may take a while)..."
-  ollama pull gemma4:27b || echo "    Warning: could not pull gemma4:27b — start Ollama and retry"
+echo "==> Checking Gemma checkpoint path"
+GEMMA_PATH_DEFAULT="/mnt/raid1/CHK/playground/Gemma4/ckpts/gemma-4-26B-A4B-it"
+if [ -d "$GEMMA_PATH_DEFAULT" ]; then
+  echo "    Found checkpoint directory: $GEMMA_PATH_DEFAULT"
 else
-  echo "    Ollama not found. Install from https://ollama.ai and run: ollama pull gemma4:27b"
+  echo "    Warning: checkpoint directory not found: $GEMMA_PATH_DEFAULT"
+  echo "    Set GEMMA_MODEL_PATH in .env (or rely on provider auto-scan roots)."
 fi
 
 echo ""

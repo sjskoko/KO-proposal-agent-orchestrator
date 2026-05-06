@@ -31,8 +31,8 @@ Gemma 4 기반 로컬 에이전트 오케스트레이터입니다.
 
 | 항목 | 내용 |
 |---|---|
-| 기본 모델 | Gemma 4 (Ollama 로컬 실행) |
-| API 폴백 | OpenAI GPT-4o, Anthropic Claude (선택) |
+| 기본 모델 | Gemma 4 (로컬 체크포인트 실행) |
+| API 폴백 | 없음 (1차 버전: Gemma 실패 시 즉시 종료) |
 | 런타임 | reasoning / tools / files / browser / memory / api |
 | 에이전트 패턴 | planner-worker, supervisor-specialist, tool-executor |
 | 스킬 형식 | YAML 명세 + Python 핸들러 |
@@ -186,21 +186,15 @@ gemma-agent/
 | 항목 | 버전 | 용도 |
 |---|---|---|
 | Python | 3.11 이상 | 프로젝트 런타임 |
-| Ollama | 최신 | Gemma 4 로컬 실행 |
+| Gemma4 체크포인트 | 로컬 경로 | `/workspace/playground/Gemma4/ckpts` 등 |
 | Node.js | 18 이상 | MCP 서버 (npx) |
 | Git | - | 레포 관리 |
 
-### 4-2. Ollama 설치 및 모델 다운로드
+### 4-2. Gemma4 체크포인트 준비
 
 ```bash
-# macOS / Linux
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# Gemma 4 모델 다운로드 (약 16GB)
-ollama pull gemma4:27b
-
-# 메모리가 부족한 경우 소형 모델 사용
-ollama pull gemma4:12b
+# 예시 경로
+ls /workspace/playground/Gemma4/ckpts
 ```
 
 ### 4-3. 프로젝트 설치
@@ -224,19 +218,14 @@ cp config/env.example .env
 `.env` 파일을 열고 필요한 값을 채웁니다.
 
 ```dotenv
-# 로컬 모델 (기본값 — Ollama가 localhost:11434에서 실행 중이어야 함)
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=gemma4:27b
-
-# API 폴백 (선택 — 없으면 로컬 모델만 사용)
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
+# 로컬 Gemma4 체크포인트 경로
+GEMMA_MODEL_PATH=/workspace/playground/Gemma4/ckpts
 
 # MCP Brave Search (선택)
 BRAVE_API_KEY=...
 ```
 
-> API 키를 설정하지 않으면 로컬 Gemma 4만 사용됩니다. API 폴백 없이도 완전히 동작합니다.
+> 1차 버전 정책: Gemma4 로드/호출 실패 시 즉시 종료하며, 외부 API로 폴백하지 않습니다.
 
 ---
 
@@ -244,9 +233,6 @@ BRAVE_API_KEY=...
 
 ```bash
 source .venv/bin/activate
-
-# Ollama 서버 실행 (별도 터미널)
-ollama serve
 
 # 단일 목표 실행
 agent run "workspace 폴더의 파일 목록을 정리해서 요약해줘"
@@ -517,9 +503,9 @@ runtimes:
 providers:
   gemma4_local:
     type: local
-    backend: ollama
-    model: gemma4:27b          # ollama list 로 확인 가능한 모델명
-    base_url: http://localhost:11434
+    backend: transformers_local
+    model: /workspace/playground/Gemma4/ckpts
+    base_url: ""
     priority: 1                # 낮을수록 먼저 시도
 ```
 
@@ -534,10 +520,6 @@ routing:
     - match: { task_type: code_generation }
       prefer: gemma4_local
 
-    # 웹 검색 요약은 GPT-4o로
-    - match: { task_type: web_search_summary }
-      prefer: openai_gpt4o
-
     # 긴 문서는 컨텍스트 큰 로컬 모델로
     - match: { context_tokens: ">100000" }
       prefer: gemma4_local
@@ -545,8 +527,6 @@ routing:
   # 규칙 미매칭 시 순서대로 시도
   fallback_chain:
     - gemma4_local
-    - openai_gpt4o
-    - anthropic_sonnet
 ```
 
 ### 10-3. 비용 제어
@@ -805,7 +785,7 @@ for r in records:
 # 전체 테스트
 bash scripts/run_tests.sh all
 
-# 단위 테스트만 (Ollama 불필요)
+# 단위 테스트만
 bash scripts/run_tests.sh unit
 
 # 통합 테스트 (런타임)
@@ -824,7 +804,7 @@ open htmlcov/index.html
 
 ### 테스트 계층 구조
 
-| 계층 | 위치 | Ollama 필요 | 설명 |
+| 계층 | 위치 | Gemma 체크포인트 필요 | 설명 |
 |---|---|---|---|
 | 단위 | `tests/unit/` | 불필요 | 인터페이스·로직 검증 |
 | 통합 | `tests/integration/` | 불필요 | 런타임 실제 동작 |

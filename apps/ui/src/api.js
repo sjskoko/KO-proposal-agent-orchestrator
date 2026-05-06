@@ -1,58 +1,56 @@
 /**
- * API module — thin wrappers around fetch() and EventSource.
+ * API module — wrappers around fetch() and EventSource.
  *
- * BASE = '/api' resolves to the Vite proxy, which forwards to the FastAPI server.
- * In production (FastAPI serves the built app) '/api' hits FastAPI directly.
+ * All paths start with '/api', which Vite proxies to the FastAPI server.
  */
 
 const BASE = '/api'
 
+async function _get(path) {
+  const r = await fetch(`${BASE}${path}`)
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  return r.json()
+}
+
 export const api = {
-  /** GET /health */
-  async health() {
-    const r = await fetch(`${BASE}/health`)
-    return r.json()
-  },
-
-  /** GET /agents — returns list of agent definitions */
-  async agents() {
-    const r = await fetch(`${BASE}/agents`)
-    if (!r.ok) throw new Error('Failed to load agents')
-    return r.json()
-  },
-
-  /** GET /models — returns full models.yaml */
-  async models() {
-    const r = await fetch(`${BASE}/models`)
-    if (!r.ok) throw new Error('Failed to load models')
-    return r.json()
-  },
+  health:  () => _get('/health'),
+  agents:  () => _get('/agents'),
+  models:  () => _get('/models'),
+  tasks:   () => _get('/tasks'),
+  task:    (sessionId) => _get(`/tasks/${sessionId}`),
 
   /**
-   * Stream a task via Server-Sent Events (SSE).
+   * Stream a task via SSE.
    *
-   * SSE is a browser API (EventSource) that opens a persistent HTTP connection.
-   * The server pushes newline-delimited JSON events, which arrive one by one
-   * as they happen — similar to tail -f on a log file.
+   * Emits:
+   *   onSession(sessionId)  — immediately, before any events
+   *   onEvent(eventObj)     — for each domain event
+   *   onDone(result, sessionId)
+   *   onError(message)
    *
-   * Returns a `stop` function you can call to close the connection early.
+   * Returns a stop() function to close the stream early.
    */
-  streamTask(goal, agentId, { onEvent, onDone, onError }) {
+  streamTask(goal, agentId, { onSession, onEvent, onDone, onError }) {
     const params = new URLSearchParams({ goal, agent_id: agentId })
-    const url = `${BASE}/tasks/stream?${params}`
-
-    const es = new EventSource(url)
+    const es = new EventSource(`${BASE}/tasks/stream?${params}`)
 
     es.onmessage = (e) => {
       const data = JSON.parse(e.data)
-      if (data.type === 'done') {
-        onDone(data.result)
-        es.close()
-      } else if (data.type === 'error' || data.type === 'timeout') {
-        onError(data.message ?? 'Agent timed out')
-        es.close()
-      } else {
-        onEvent(data)
+      switch (data.type) {
+        case 'session_started':
+          onSession?.(data.session_id)
+          break
+        case 'done':
+          onDone(data.result, data.session_id)
+          es.close()
+          break
+        case 'error':
+        case 'timeout':
+          onError(data.message ?? 'Agent timed out')
+          es.close()
+          break
+        default:
+          onEvent(data)
       }
     }
 

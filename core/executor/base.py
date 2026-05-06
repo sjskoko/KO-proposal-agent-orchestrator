@@ -35,7 +35,7 @@ class Executor:
             if not ready:
                 if not graph.is_complete():
                     log.error("executor.deadlock", summary=graph.summary())
-                    break
+                    raise RuntimeError(f"Executor deadlock: {graph.summary()}")
                 break
 
             for node in ready:
@@ -65,6 +65,9 @@ class Executor:
                         error_message=str(exc),
                     ))
                     log.error("executor.step_failed", node=node.node_id, error=str(exc))
+
+        if graph.has_failures():
+            raise RuntimeError(f"Executor failed: {graph.summary()}")
 
         return last_result
 
